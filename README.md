@@ -49,6 +49,18 @@ fetches them for the end-to-end tests (no sudo), then
 - `test/unit`, `test/e2e`: node:test and Playwright suites.
 - `tools/themes/`: theme colour generator (`src/shared/themes.ts` is generated from it).
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
+[SignPath Foundation](https://signpath.org).
+
+- Committers and reviewers: [alymurtza](https://github.com/alymurtza)
+- Approvers: [alymurtza](https://github.com/alymurtza)
+
+Privacy: this program will not transfer any information to other networked systems unless
+specifically requested by the user or the person installing or operating it. See
+[PRIVACY.md](PRIVACY.md).
+
 ## Privacy
 
 See also [PRIVACY.md](PRIVACY.md).
