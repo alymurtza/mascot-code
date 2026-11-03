@@ -12,6 +12,7 @@ ipcRenderer.on(EVENT_CHANNEL, (_event, name: keyof Events, payload: unknown) => 
  * `mascot.on(event, listener)` for events. */
 const mascot = {
   platform: process.platform,
+  flatpak: Boolean(process.env['FLATPAK_ID']),
   invoke: (method: keyof Api, ...args: unknown[]): Promise<unknown> =>
     ipcRenderer.invoke(CALL_CHANNEL, method, ...args),
   on<K extends keyof Events>(name: K, listener: Listener<K>): () => void {

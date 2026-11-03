@@ -399,9 +399,11 @@ function UpdatesCard({ version }: { version: string }): JSX.Element {
   }
   const line =
     status === 'unsupported'
-      ? platform === 'darwin'
-        ? 'Updates come as new downloads from the website on this Mac.'
-        : 'Updates work in the installed app.'
+      ? update?.store
+        ? `Mascot gets new versions from ${update.store}.`
+        : platform === 'darwin'
+          ? 'Updates come as new downloads from the website on this Mac.'
+          : 'Updates work in the installed app.'
       : status === 'checking'
         ? 'Looking for a new version…'
         : status === 'available'

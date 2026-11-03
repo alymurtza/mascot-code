@@ -44,6 +44,9 @@ const CHROMIUM_KEYS = [
 
 /** Writes the host's files and registers them; resolves with where the manifests went. */
 export async function registerNativeHost(): Promise<string[]> {
+  // A browser can't start a program inside the Flatpak sandbox; the extension reaches Mascot
+  // over its local connection instead.
+  if (process.env['FLATPAK_ID']) return []
   const dir = join(app.getPath('userData'), 'native-host')
   mkdirSync(dir, { recursive: true })
   const config = join(dir, 'config.json')

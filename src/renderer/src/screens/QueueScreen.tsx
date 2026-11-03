@@ -1,7 +1,7 @@
 import { useState, type JSX } from 'react'
 import type { Download } from '@shared/download'
 import { minutesOf, type Settings } from '@shared/settings'
-import { api } from '../bridge'
+import { api, flatpak } from '../bridge'
 import { inAnHour, localInput } from '../clock'
 import { fileTag, fromUnit, inUnit, size, speed, when } from '../format'
 import { report, useApp } from '../store'
@@ -258,12 +258,19 @@ export function QueueScreen(): JSX.Element {
           <Choice
             label="When all downloads finish"
             value={settings.afterAll}
-            options={[
-              ['notify', 'Notify me'],
-              ['sleep', 'Sleep'],
-              ['shutdown', 'Shut down'],
-              ['nothing', 'Nothing']
-            ]}
+            options={
+              flatpak
+                ? [
+                    ['notify', 'Notify me'],
+                    ['nothing', 'Nothing']
+                  ]
+                : [
+                    ['notify', 'Notify me'],
+                    ['sleep', 'Sleep'],
+                    ['shutdown', 'Shut down'],
+                    ['nothing', 'Nothing']
+                  ]
+            }
             onChange={(afterAll) => save({ afterAll })}
           />
         </div>

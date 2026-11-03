@@ -29,13 +29,18 @@ export class Updates {
     if (this.fake) return true
     if (!app.isPackaged || process.env['MASCOT_TEST_USER_DATA'] !== undefined) return false
     if (process.platform === 'darwin') return false
+    // Flathub updates the Flatpak itself.
+    if (process.env['FLATPAK_ID']) return false
     if (process.platform === 'linux' && !process.env['APPIMAGE']) return false
     return true
   }
 
   async start(): Promise<void> {
     if (!this.supported) {
-      this.set({ status: 'unsupported' })
+      this.set({
+        status: 'unsupported',
+        ...(process.env['FLATPAK_ID'] ? { store: 'Flathub' } : {})
+      })
       return
     }
     if (this.fake) return

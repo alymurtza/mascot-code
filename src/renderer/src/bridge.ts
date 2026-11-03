@@ -15,3 +15,5 @@ export const on = <K extends keyof Events>(
 ): (() => void) => window.mascot.on(name, listener)
 
 export const platform = window.mascot.platform
+/** Installed from Flathub: the sandbox can't put the computer to sleep or shut it down. */
+export const flatpak = window.mascot.flatpak

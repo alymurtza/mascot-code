@@ -145,6 +145,8 @@ export interface UpdateState {
   percent?: number
   checkedAt?: number
   message?: string
+  /** Where updates come from instead, when Mascot came from an app store. */
+  store?: string
 }
 
 export interface Events {

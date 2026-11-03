@@ -223,7 +223,10 @@ function notify(title: string, body: string, d?: Download): void {
 }
 
 function startAfterAll(): void {
-  const action = settings.get().afterAll
+  const chosen = settings.get().afterAll
+  // The Flatpak can't sleep or shut down the computer: it tells you instead.
+  const action =
+    process.env['FLATPAK_ID'] && (chosen === 'sleep' || chosen === 'shutdown') ? 'notify' : chosen
   if (action === 'nothing') return
   if (action === 'notify')
     return notify('Downloads finished', 'Everything in the queue has finished.')
