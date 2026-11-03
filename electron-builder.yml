@@ -1,0 +1,81 @@
+appId: com.mascot.downloader
+# Native modules come prebuilt (N-API); nothing to compile.
+npmRebuild: false
+productName: Mascot
+copyright: Copyright © 2026 Mascot Downloader
+directories:
+  buildResources: build
+  output: dist
+# Only the built app goes in. Each platform repeats this list: a platform's own `files`
+# replaces it rather than adding to it, and without the list the whole project folder was packed.
+files:
+  - out/**
+  - resources/**
+  - package.json
+  - '!**/*.map'
+asarUnpack:
+  - node_modules/koffi/**
+  - node_modules/node-datachannel/**
+  - resources/**
+extraResources:
+  - from: native/host.cjs
+    to: native-host.cjs
+  - from: LICENSE
+    to: LICENSE.txt
+  - from: THIRD_PARTY_NOTICES.md
+    to: THIRD_PARTY_NOTICES.md
+# Releases on GitHub; the installed app reads the latest one to update itself.
+publish:
+  provider: github
+  owner: alymurtza
+  repo: mascot
+  releaseType: draft
+protocols:
+  - name: Mascot
+    schemes: [mascot]
+win:
+  files:
+    - out/**
+    - resources/**
+    - package.json
+    - '!**/*.map'
+    - '!node_modules/koffi/build/koffi/!(win32_x64|win32_arm64)/**'
+  executableName: Mascot
+  target: [nsis]
+  artifactName: Mascot-Downloader-Setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Mascot
+  license: LICENSE
+  include: build/installer.nsh
+mac:
+  files:
+    - out/**
+    - resources/**
+    - package.json
+    - '!**/*.map'
+    - '!node_modules/koffi/build/koffi/!(darwin_*)/**'
+  category: public.app-category.utilities
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  artifactName: Mascot-Downloader-${arch}.${ext}
+linux:
+  files:
+    - out/**
+    - resources/**
+    - package.json
+    - '!**/*.map'
+    - '!node_modules/koffi/build/koffi/!(linux_*)/**'
+  executableName: mascot
+  category: Network
+  maintainer: Mascot Downloader
+  target: [AppImage, deb, rpm, tar.gz]
+  artifactName: Mascot-Downloader-${arch}.${ext}
+deb:
+  artifactName: mascot-downloader_${arch}.${ext}
+rpm:
+  artifactName: mascot-downloader.${arch}.${ext}

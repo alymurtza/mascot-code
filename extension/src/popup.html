@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mascot</title>
+    <style>
+      :root {
+        --bg: #fffcf7;
+        --raised: #fff6ef;
+        --line: #ece4dd;
+        --ink: #221f1d;
+        --muted: #5f5956;
+        --faint: #857e79;
+        --acc: #b49268;
+        --acc2: #d5b997;
+        --acc-text: #8a6a41;
+        --acc-soft: rgb(180 146 104 / 0.14);
+        --eye: #1a0f03;
+        /* The Mascot face, as the app icon: cream with a faint edge. */
+        --face-a: #fbf2e2;
+        --face-b: #eedab9;
+        --face-edge: rgb(90 60 30 / 0.28);
+        --face-eye: #3a2a1c;
+        --ok: #1c8752;
+        --ok-soft: rgb(28 135 82 / 0.1);
+        --warn: #94660a;
+        --warn-soft: rgb(148 102 10 / 0.1);
+        --field: #ffffff;
+        --grey-a: #d8cfc7;
+        --grey-b: #bfb3a8;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1a1511;
+          --raised: #221b16;
+          --line: #33291f;
+          --ink: #f2ebe4;
+          --muted: #ad9f92;
+          --faint: #8a7d71;
+          --acc: #eedab9;
+          --acc2: #f6e6cb;
+          --acc-text: #eedab9;
+          --acc-soft: rgb(238 218 185 / 0.16);
+          --eye: #181003;
+          --ok: #7fd49e;
+          --ok-soft: rgb(127 212 158 / 0.13);
+          --warn: #f0c46e;
+          --warn-soft: rgb(240 196 110 / 0.13);
+          --field: #14100d;
+          --grey-a: #5a4e44;
+          --grey-b: #43392f;
+          color-scheme: dark;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        width: 340px;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          13.5px/1.45 'Segoe UI',
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 2px solid var(--acc);
+        outline-offset: 2px;
+      }
+      .head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px 12px;
+      }
+      .face {
+        width: 28px;
+        height: 28px;
+        border-radius: 9px 9px 11px 11px;
+        background: linear-gradient(160deg, var(--face-a), var(--face-b));
+        box-shadow: inset 0 0 0 1px var(--face-edge);
+        position: relative;
+        flex: none;
+      }
+      .face::before,
+      .face::after {
+        content: '';
+        position: absolute;
+        top: 10px;
+        width: 4.5px;
+        height: 6.5px;
+        border-radius: 2.5px;
+        background: var(--face-eye);
+      }
+      .face::before {
+        left: 7px;
+      }
+      .face::after {
+        right: 7px;
+      }
+      .face.off {
+        filter: grayscale(1);
+        opacity: 0.6;
+      }
+      .title {
+        font-weight: 700;
+        font-size: 17px;
+        letter-spacing: 0.01em;
+      }
+      .pill {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11.5px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .pill i {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .pill.ok {
+        background: var(--ok-soft);
+        color: var(--ok);
+      }
+      .pill.off {
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+      .pill.idle {
+        background: var(--raised);
+        color: var(--muted);
+        border: 1px solid var(--line);
+      }
+      .main {
+        padding: 0 16px 14px;
+        display: grid;
+        gap: 12px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .sub {
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+      .switch {
+        width: 38px;
+        height: 22px;
+        border-radius: 999px;
+        background: var(--line);
+        position: relative;
+        flex: none;
+        border: 0;
+        padding: 0;
+      }
+      .switch::after {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--ink);
+        transition: transform 0.2s;
+      }
+      .switch[aria-checked='true'] {
+        background: linear-gradient(160deg, var(--acc2), var(--acc));
+      }
+      .switch[aria-checked='true']::after {
+        transform: translateX(16px);
+        background: var(--eye);
+      }
+      .card {
+        border: 1px solid var(--line);
+        background: var(--raised);
+        border-radius: 11px;
+        padding: 10px 12px;
+        display: grid;
+        gap: 10px;
+      }
+      .site {
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 12px;
+        color: var(--muted);
+        overflow-wrap: anywhere;
+      }
+      .seg {
+        display: inline-flex;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 2px;
+        gap: 2px;
+        background: var(--bg);
+        flex: none;
+      }
+      .seg button {
+        border: 0;
+        background: none;
+        font-size: 11.5px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .seg button[aria-pressed='true'] {
+        background: var(--acc-soft);
+        color: var(--acc-text);
+        font-weight: 600;
+      }
+      .label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--faint);
+        margin-bottom: 2px;
+      }
+      .label b {
+        font-family: ui-monospace, Consolas, monospace;
+        color: var(--acc-text);
+        margin-left: 4px;
+      }
+      .note {
+        font-size: 12.5px;
+        color: var(--muted);
+        background: var(--raised);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 8px 10px;
+      }
+      .note b {
+        color: var(--ink);
+      }
+      .list {
+        display: grid;
+        max-height: 230px;
+        overflow-y: auto;
+      }
+      .item {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        gap: 9px;
+        align-items: center;
+        padding: 6px 2px;
+      }
+      .item + .item {
+        border-top: 1px solid var(--line);
+      }
+      .tile {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        background: var(--raised);
+        border: 1px solid var(--line);
+        display: grid;
+        place-items: center;
+        font:
+          500 8.5px ui-monospace,
+          Consolas,
+          monospace;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .n {
+        font-weight: 600;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .m {
+        font-size: 11.5px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .acts {
+        display: inline-flex;
+        gap: 4px;
+      }
+      .ico {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        padding: 0;
+      }
+      .ico:hover {
+        color: var(--ink);
+      }
+      .ico svg {
+        width: 13px;
+        height: 13px;
+      }
+      .empty {
+        display: grid;
+        justify-items: center;
+        text-align: center;
+        gap: 8px;
+        padding: 6px 6px 2px;
+      }
+      .big {
+        width: 52px;
+        height: 52px;
+        border-radius: 16px 16px 19px 19px;
+        background: linear-gradient(160deg, var(--grey-a), var(--grey-b));
+        position: relative;
+      }
+      .big::before,
+      .big::after {
+        content: '';
+        position: absolute;
+        top: 21px;
+        width: 8px;
+        height: 3px;
+        border-radius: 2px;
+        background: var(--eye);
+      }
+      .big::before {
+        left: 12px;
+      }
+      .big::after {
+        right: 12px;
+      }
+      .empty h1 {
+        font-size: 15px;
+        margin: 0;
+      }
+      .empty p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12.5px;
+        max-width: 30ch;
+      }
+      .foot {
+        display: flex;
+        gap: 8px;
+        padding: 10px 16px 14px;
+        border-top: 1px solid var(--line);
+        background: var(--raised);
+      }
+      .btn {
+        flex: 1;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        border-radius: 9px;
+        padding: 7px 10px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .btn.primary {
+        background: linear-gradient(160deg, var(--acc2), var(--acc));
+        border-color: transparent;
+        color: var(--eye);
+      }
+      .btn.ghost {
+        flex: none;
+        color: var(--muted);
+      }
+      .btn[disabled] {
+        opacity: 0.6;
+        cursor: default;
+      }
+      .error {
+        color: var(--warn);
+        font-size: 12.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" aria-live="polite">
+      <div class="head"><span class="face"></span><span class="title">Mascot</span></div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Stand-in for wine under WSL: runs the Windows program natively, with Linux paths turned into
+# Windows ones.
+exe="$1"; shift
+args=()
+for a in "$@"; do
+  if [[ "$a" == /* && -e "$a" ]]; then args+=("$(wslpath -w "$a")"); else args+=("$a"); fi
+done
+chmod +x "$exe" 2>/dev/null
+exec "$exe" "${args[@]}"

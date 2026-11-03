@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Mascot",
+  "description": "Sends your downloads to the Mascot app, which uses all your internet connections at once.",
+  "version": "0.1.0",
+  "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Mascot"
+  },
+  "permissions": [
+    "downloads",
+    "cookies",
+    "storage",
+    "contextMenus",
+    "nativeMessaging",
+    "alarms",
+    "activeTab"
+  ],
+  "host_permissions": ["<all_urls>"]
+}
