@@ -1,7 +1,7 @@
 {
   "name": "mascot-downloader",
   "productName": "Mascot",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Download files and torrents faster by using all your internet connections at once.",
   "main": "./out/main/index.js",
   "author": "Mascot Downloader",

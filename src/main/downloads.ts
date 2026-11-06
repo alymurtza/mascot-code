@@ -762,7 +762,6 @@ export class Engine {
       this.snapshot(job)
       for (const [id, v] of Object.entries(job.d.networkSpeeds)) totals[id] = (totals[id] ?? 0) + v
     }
-    for (const [id, v] of Object.entries(this.torrents.speeds())) totals[id] = (totals[id] ?? 0) + v
     this.networks.speeds = totals
     const busy = [...this.jobs.values()].some(
       (j) => j.running || j.d.status === 'queued' || j.d.status === 'checking'
@@ -790,8 +789,20 @@ export class Engine {
     const d = job.d
     if (!t) return
     d.received = t.received
-    d.speed = t.meter.rate()
-    d.networkSpeeds = t.speeds()
+    if (t instanceof TorrentTransfer) {
+      // Its live speed, split over the networks in the shares torrent traffic is using them.
+      d.speed = t.liveSpeed
+      const shares = this.torrents.speeds()
+      const all = Object.values(shares).reduce((a, b) => a + b, 0)
+      d.networkSpeeds = {}
+      if (all > 0 && d.speed > 0)
+        for (const [id, v] of Object.entries(shares)) d.networkSpeeds[id] = (d.speed * v) / all
+    } else {
+      d.networkSpeeds = t.speeds()
+      const lanes = Object.values(d.networkSpeeds)
+      // The sum of its networks, so the downloads add up to the total.
+      d.speed = lanes.length ? lanes.reduce((a, b) => a + b, 0) : t.meter.rate()
+    }
     d.connections = t.connections
     if (t instanceof TorrentTransfer) {
       const pieces = t.pieces

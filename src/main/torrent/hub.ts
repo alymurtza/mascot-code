@@ -132,6 +132,11 @@ export class TorrentTransfer {
     return this.progress?.peers ?? 0
   }
 
+  /** Bytes/s arriving from peers now (pieces count as they come, not once checked). */
+  get liveSpeed(): number {
+    return this.progress?.speed ?? 0
+  }
+
   get pieces(): TorrentProgress['pieces'] | undefined {
     return this.progress?.pieces.total ? this.progress.pieces : undefined
   }

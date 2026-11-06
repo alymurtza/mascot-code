@@ -86,6 +86,8 @@ textarea {
 }
 .app > .page {
   overflow-y: auto;
+  /* Room for the scrollbar is kept, so the page doesn't shift when it comes and goes. */
+  scrollbar-gutter: stable;
 }
 .side {
   overflow-y: auto;
@@ -2520,4 +2522,25 @@ textarea.inp {
   display: grid;
   place-items: center;
   font-size: 12px;
+}
+
+/* Scrollbars in the theme's colours, always shown while there's more to scroll (Windows' own
+   ones hide themselves and reappear when the page changes). */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ink) 22%, transparent);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  min-height: 40px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--ink) 38%, transparent);
 }
