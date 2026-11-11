@@ -114,6 +114,13 @@ function createWindow(hidden: boolean): BrowserWindow {
     sendState()
   })
   // Closing keeps Mascot running in the tray, unless Settings says closing quits.
+  // Windows is shutting down or signing out: it may not wait for a normal quit, so everything is
+  // written to disk first.
+  window.on('session-end', () => {
+    engine?.saveNow()
+    networks.saveNow()
+    settings.flush()
+  })
   window.on('close', (event) => {
     if (quitting || settings.get().closeAction === 'quit') return
     event.preventDefault()
@@ -415,6 +422,7 @@ void app.whenReady().then(async () => {
     reorder: async (id, by) => engine.reorder(id, by),
     addMirror: async (id, url, sameFile) => engine.addMirror(id, url, sameFile),
     removeMirror: async (id, url) => engine.removeMirror(id, url),
+    rename: (id, name) => engine.rename(id, name),
     renameGroup: async (groupId, name) => engine.renameGroup(groupId, name),
     setGroup: async (ids, group) => engine.setGroup(ids, group),
     pauseAll: async () => engine.pauseAll(),

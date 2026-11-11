@@ -42,7 +42,8 @@ test('adding a download through the window: it finishes, checksum checked, rows 
   await page.getByRole('button', { name: 'Add download' }).first().click()
   const dialog = page.getByRole('dialog', { name: 'Add download' })
   await dialog.getByLabel('Link or magnet').fill(server.url('/ui/one.iso'))
-  await expect(dialog.getByText('one.iso · 3.0 MB')).toBeVisible()
+  await expect(dialog.getByLabel('Save as')).toHaveValue('one.iso')
+  await expect(dialog.getByText('3.0 MB')).toBeVisible()
   await dialog.getByLabel(/Checksum/).fill('abc')
   await expect(dialog.getByText('That doesn’t look like')).toBeVisible()
   await dialog.getByLabel(/Checksum/).fill(sha256(body))
@@ -416,7 +417,7 @@ test('adding a file that is already in the folder asks first; Download again kee
     await page.getByRole('button', { name: 'Add download' }).first().click()
     const dialog = page.getByRole('dialog', { name: 'Add download' })
     await dialog.getByLabel('Link or magnet').fill(url)
-    await expect(dialog.getByText(/twice\.zip ·/)).toBeVisible()
+    await expect(dialog.getByLabel('Save as')).toHaveValue('twice.zip')
     await dialog.getByRole('button', { name: 'Add download' }).click()
   }
   await add()

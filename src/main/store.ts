@@ -1,9 +1,32 @@
 import { app } from 'electron'
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import {
+  closeSync,
+  existsSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  writeSync
+} from 'node:fs'
 import { dirname, join } from 'node:path'
 
-/** A JSON file in the app's data folder, written atomically (temp file then rename) and at
- * most every `delayMs`. */
+/** Writes JSON all the way to the disk in a temp file, then puts it in place. */
+export function writeJsonSync(path: string, value: unknown): void {
+  const temp = path + '.tmp'
+  const fd = openSync(temp, 'w')
+  try {
+    writeSync(fd, JSON.stringify(value))
+    fsyncSync(fd)
+  } finally {
+    closeSync(fd)
+  }
+  renameSync(temp, path)
+}
+
+/** A JSON file in the app's data folder, written at most every `delayMs`. Each write goes all
+ * the way to the disk in a temp file before it replaces the file, and the previous copy stays as
+ * `.bak`, so a power cut or crash in the middle leaves a readable copy. */
 export class JsonFile<T> {
   private timer: NodeJS.Timeout | null = null
   private pending: T | null = null
@@ -18,11 +41,22 @@ export class JsonFile<T> {
   }
 
   read(): T | undefined {
-    try {
-      return JSON.parse(readFileSync(this.path, 'utf8')) as T
-    } catch {
-      return undefined
+    for (const path of [this.path, this.path + '.bak']) {
+      try {
+        return JSON.parse(readFileSync(path, 'utf8')) as T
+      } catch {
+        // Missing or unreadable: try the backup.
+      }
     }
+    // Neither can be read: keep the broken file aside rather than writing over it.
+    if (existsSync(this.path)) {
+      try {
+        renameSync(this.path, `${this.path}.broken-${Date.now()}`)
+      } catch {
+        // Left where it is.
+      }
+    }
+    return undefined
   }
 
   write(value: T): void {
@@ -39,9 +73,13 @@ export class JsonFile<T> {
     this.pending = null
     try {
       mkdirSync(dirname(this.path), { recursive: true })
-      const temp = this.path + '.tmp'
-      writeFileSync(temp, JSON.stringify(value))
-      renameSync(temp, this.path)
+      if (existsSync(this.path)) {
+        // The new copy goes to the disk first; only then does the old one become the backup.
+        const temp = this.path + '.new'
+        writeJsonSync(temp, value)
+        renameSync(this.path, this.path + '.bak')
+        renameSync(temp, this.path)
+      } else writeJsonSync(this.path, value)
     } catch (error) {
       console.error('[mascot] could not save', this.path, error)
     }

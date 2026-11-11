@@ -67,7 +67,7 @@ export interface Api {
   findDuplicate(
     url: string,
     info?: LinkInfo,
-    place?: { folder?: string; name?: string }
+    place?: { folder?: string; name?: string; torrent?: boolean }
   ): Promise<DuplicateMatch | null>
   add(request: AddRequest): Promise<Download>
   act(ids: string[], action: DownloadAction): Promise<void>
@@ -75,6 +75,8 @@ export interface Api {
   reorder(id: string, by: -1 | 1): Promise<void>
   addMirror(id: string, url: string, sameFile?: boolean): Promise<Download>
   removeMirror(id: string, url: string): Promise<Download>
+  /** Renames a download (and its file on disk). */
+  rename(id: string, name: string): Promise<Download>
   /** Renames a group of downloads. */
   renameGroup(groupId: string, name: string): Promise<void>
   /** Puts downloads in a group (a new one or one already there), or takes them out (null). */

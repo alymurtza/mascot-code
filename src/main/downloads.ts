@@ -1,6 +1,6 @@
 import { detectAlgorithm } from '../shared/checksum'
 import { createHash, randomUUID } from 'node:crypto'
-import { createReadStream, existsSync, statSync } from 'node:fs'
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { rename, rm, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import type {
@@ -21,7 +21,7 @@ import { TorrentTransfer, type TorrentHub } from './torrent/hub'
 import type { TorrentSource } from '../shared/torrent'
 import type { Networks } from './networks'
 import type { SettingsStore } from './settings'
-import { JsonFile } from './store'
+import { JsonFile, writeJsonSync } from './store'
 
 const RETRY_MS = Number(process.env['MASCOT_TEST_RETRY_MS'] ?? 5 * 60_000)
 const MAX_RETRIES = 3
@@ -70,6 +70,41 @@ const decode = (text: string | undefined): number[] | undefined => {
   if (!text) return undefined
   const buf = Buffer.from(text, 'base64')
   return Array.from(new Uint32Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 4)))
+}
+
+/** Kept next to a web download's part file: enough to carry on from it if the download is ever
+ * lost from the list (a power cut, a reinstall). */
+interface PartNote {
+  url: string
+  size: number
+  packetSize: number
+  etag?: string
+  lastModified?: string
+  filled?: string
+}
+const NOTE_SUFFIX = '.json'
+const readNote = (partPath: string): PartNote | undefined => {
+  try {
+    return JSON.parse(readFileSync(partPath + NOTE_SUFFIX, 'utf8')) as PartNote
+  } catch {
+    return undefined
+  }
+}
+/** Whether a note fits the file a link has now: same size, and not another version of it. */
+const noteFits = (note: PartNote | undefined, info: LinkInfo | undefined): note is PartNote => {
+  if (!note || !info?.ranged || info.size === undefined || note.size !== info.size) return false
+  if (!note.packetSize || !note.filled) return false
+  const a = strongEtag(note.etag)
+  const b = strongEtag(info.etag)
+  if (a && b && a !== b) return false
+  if (note.lastModified && info.lastModified && note.lastModified !== info.lastModified)
+    return false
+  return true
+}
+const filledBytes = (filled: ArrayLike<number> | undefined): number => {
+  let sum = 0
+  for (let i = 0; i < (filled?.length ?? 0); i++) sum += filled![i]
+  return sum
 }
 
 /** A link written the same way however it was pasted. */
@@ -169,11 +204,35 @@ export class Engine {
       [...this.jobs.values()].map((j) => ({
         d: j.d,
         partPath: j.partPath,
-        filled: encode(j.transfer?.table?.filled ?? j.filled),
+        // What's safely on disk (a running download's table runs ahead of that).
+        filled: encode(j.filled),
         order: j.order,
         torrent: j.torrent
       }))
     )
+  }
+
+  /** Keeps a web download's note in step with what's on disk. */
+  private writeNote(job: Job): void {
+    const d = job.d
+    if (d.kind !== 'web' || !d.ranged || d.size === undefined || !d.packetSize || !job.filled)
+      return
+    try {
+      writeJsonSync(job.partPath + NOTE_SUFFIX, {
+        url: d.url,
+        size: d.size,
+        packetSize: d.packetSize,
+        etag: d.etag,
+        lastModified: d.lastModified,
+        filled: encode(job.filled)
+      } satisfies PartNote)
+    } catch {
+      // Only a help for later; the download carries on.
+    }
+  }
+
+  private async removeNote(job: Job): Promise<void> {
+    await rm(job.partPath + NOTE_SUFFIX, { force: true }).catch(() => {})
   }
 
   private changed(): void {
@@ -210,16 +269,38 @@ export class Engine {
   findDuplicate(
     url: string,
     info?: LinkInfo,
-    place?: { folder?: string; name?: string }
+    place?: { folder?: string; name?: string; torrent?: boolean }
   ): DuplicateMatch | undefined {
     const inList = this.findInList(url, info)
     if (inList) return inList
-    // Not in the list, but a file by that name is already where it would be saved.
+    // Not in the list, but something by that name is already where it would be saved.
     const name = place?.name || info?.name
     if (!name) return undefined
     const path = join(place?.folder || this.settings.get().folder, safeName(name))
+    if (this.taken(path)) return undefined
+    // A torrent's folder (or file): carrying on checks every piece against the torrent.
+    if (place?.torrent)
+      return existsSync(path)
+        ? { kind: 'partial', id: '', name: basename(path), status: 'paused', path, resumable: true }
+        : undefined
     if (existsSync(path))
       return { kind: 'on-disk', id: '', name: basename(path), status: 'done', path }
+    // Part of it, left from a download that's no longer in the list.
+    const part = path + PART_SUFFIX
+    if (existsSync(part)) {
+      const note = readNote(part)
+      const fits = noteFits(note, info)
+      return {
+        kind: 'partial',
+        id: '',
+        name: basename(path),
+        status: 'paused',
+        path,
+        resumable: fits,
+        received: fits ? filledBytes(decode(note.filled)) : undefined,
+        size: info?.size
+      }
+    }
     return undefined
   }
 
@@ -269,7 +350,22 @@ export class Engine {
     const s = this.settings.get()
     const folder = request.folder || s.folder
     const name = safeName(request.name || info.name)
-    const path = uniquePath(folder, name, this.taken)
+    let path = uniquePath(folder, name, this.taken)
+    // Carry on from (or replace) what's left of an earlier download of it.
+    let resume: { filled: number[]; packetSize: number } | undefined
+    if (request.existing && !this.taken(join(folder, name))) {
+      path = join(folder, name)
+      const part = path + PART_SUFFIX
+      const note = readNote(part)
+      if (request.existing === 'continue' && noteFits(note, info)) {
+        const filled = decode(note.filled)
+        if (filled) resume = { filled, packetSize: note.packetSize }
+      }
+      if (!resume) {
+        await rm(part, { force: true }).catch(() => {})
+        await rm(part + NOTE_SUFFIX, { force: true }).catch(() => {})
+      }
+    }
     const when = request.when ?? 'now'
     const ranged = info.ranged && info.size !== undefined && info.size > 0
     const d: Download = {
@@ -283,7 +379,9 @@ export class Engine {
       size: info.size,
       received: 0,
       ranged,
-      packetSize: ranged ? PacketTable.packetSizeFor(info.size!) : undefined,
+      packetSize: ranged
+        ? (resume?.packetSize ?? PacketTable.packetSizeFor(info.size!))
+        : undefined,
       speed: 0,
       networkSpeeds: {},
       connections: 0,
@@ -300,9 +398,17 @@ export class Engine {
       headers: request.headers && Object.keys(request.headers).length ? request.headers : undefined,
       group: groupFrom(request.group)
     }
-    if (ranged)
-      d.packets = { total: Math.ceil(info.size! / d.packetSize!), done: 0, active: 0, partDone: 0 }
-    const job: Job = { d, partPath: path + PART_SUFFIX, order: this.nextOrder++ }
+    const table = ranged ? new PacketTable(info.size!, d.packetSize!, resume?.filled) : undefined
+    if (table) {
+      d.packets = { total: table.count, done: table.done, active: 0, partDone: table.partDone }
+      if (resume) d.received = filledBytes(table.filled)
+    }
+    const job: Job = {
+      d,
+      partPath: path + PART_SUFFIX,
+      order: this.nextOrder++,
+      filled: resume && table ? Array.from(table.filled) : undefined
+    }
     this.jobs.set(d.id, job)
     // "Now" goes ahead of the queue, but still counts towards how many run at once.
     if (when === 'now') this.prioritize(job)
@@ -320,8 +426,10 @@ export class Engine {
     const s = this.settings.get()
     let folder = request.folder || s.folder
     const name = safeName(t.info.name)
-    // Never mix with something already there: a folder of its own instead.
-    if (existsSync(join(folder, name)) || this.taken(join(folder, name)))
+    // Never mix with something already there (a folder of its own instead), unless asked to
+    // carry on from it: then every piece already there is checked against the torrent.
+    const carryOn = request.existing === 'continue' && !this.taken(join(folder, name))
+    if (!carryOn && (existsSync(join(folder, name)) || this.taken(join(folder, name))))
       folder = uniquePath(folder, name, this.taken)
     const files = t.files && t.files.length < t.info.files.length ? t.files : undefined
     const size = files
@@ -591,8 +699,10 @@ export class Engine {
     clearTimeout(job.retryTimer)
     await this.stopAs(job, 'paused')
     this.jobs.delete(id)
-    if (job.d.status !== 'done')
+    if (job.d.status !== 'done') {
       await rm(job.partPath, { force: true, recursive: job.d.kind === 'torrent' }).catch(() => {})
+      await this.removeNote(job)
+    }
     this.changed()
     this.tick()
   }
@@ -604,6 +714,39 @@ export class Engine {
     this.jobs.delete(id)
     if (trash && existsSync(job.d.path)) await this.trash(job.d.path)
     this.changed()
+  }
+
+  /** Gives a download a new name; its file (or part of it) is renamed on disk too. */
+  async rename(id: string, newName: string): Promise<Download> {
+    const job = this.job(id)
+    const d = job.d
+    const name = safeName(newName.trim())
+    if (!newName.trim() || !name) throw new Error('Give it a name')
+    if (name === d.name) return d
+    if (d.kind === 'torrent' && d.status !== 'done')
+      throw new Error('A torrent can be renamed once it has finished')
+    if (job.finishing || d.status === 'verifying')
+      throw new Error('Wait a moment: it’s just finishing')
+    const path = join(d.folder, name)
+    if (existsSync(path) || existsSync(path + PART_SUFFIX) || this.taken(path))
+      throw new Error(`There’s already something called ${name} in that folder`)
+    // A running download lets go of its file first, then carries on.
+    const wasRunning = job.running !== undefined
+    if (wasRunning) await this.stopAs(job, 'queued')
+    if (d.status === 'done') {
+      if (existsSync(d.path)) await rename(d.path, path)
+    } else {
+      const part = path + PART_SUFFIX
+      if (existsSync(job.partPath)) await rename(job.partPath, part)
+      if (existsSync(job.partPath + NOTE_SUFFIX))
+        await rename(job.partPath + NOTE_SUFFIX, part + NOTE_SUFFIX).catch(() => {})
+      job.partPath = part
+    }
+    d.path = path
+    d.name = name
+    if (wasRunning) this.run(job)
+    this.changed()
+    return d
   }
 
   /** Renames a group of downloads. */
@@ -637,6 +780,7 @@ export class Engine {
     clearTimeout(job.retryTimer)
     await this.stopAs(job, 'paused')
     await rm(job.partPath, { force: true }).catch(() => {})
+    await this.removeNote(job)
     if (job.d.status === 'done') job.d.path = uniquePath(job.d.folder, job.d.name, this.taken)
     job.filled = undefined
     job.d.received = 0
@@ -681,6 +825,12 @@ export class Engine {
 
   get unseenFailure(): boolean {
     return [...this.jobs.values()].some((j) => j.unseen && j.d.status === 'failed')
+  }
+
+  /** Writes the list to disk now (Windows is shutting down). */
+  saveNow(): void {
+    this.save()
+    this.file.flush()
   }
 
   /** Stops every transfer and saves where each one got to (quitting). */
@@ -881,10 +1031,16 @@ export class Engine {
         }
       )
       job.transfer = transfer
+      // Every 2 s the data goes to the disk, and only then is it recorded as there: after a
+      // power cut, nothing is marked done that didn't reach the disk.
       const saver = setInterval(() => {
-        job.filled = transfer.table ? Array.from(transfer.table.filled) : undefined
-        void transfer.flush()
-        this.save()
+        const filled = transfer.table ? Array.from(transfer.table.filled) : undefined
+        void transfer.flush().then(() => {
+          if (job.transfer !== transfer) return
+          job.filled = filled
+          this.writeNote(job)
+          this.save()
+        })
       }, 2000)
       let result: 'done' | 'stopped'
       try {
@@ -903,6 +1059,7 @@ export class Engine {
       }
       if (result === 'stopped') {
         d.status = job.stopAs ?? 'paused'
+        this.writeNote(job)
         return
       }
       job.finishing = true
@@ -972,6 +1129,7 @@ export class Engine {
     let path = d.path
     if (existsSync(path)) path = uniquePath(dirname(path), basename(path), this.taken)
     await rename(job.partPath, path)
+    await this.removeNote(job)
     d.path = path
     d.name = basename(path)
     d.received = (await stat(path)).size

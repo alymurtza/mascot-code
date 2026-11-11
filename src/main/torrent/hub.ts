@@ -166,6 +166,11 @@ export class TorrentTransfer {
         if (m.type === 'usage' || m.type === 'info') return
         if (m.id !== this.id && m.id !== '*') return
         if (m.type === 'progress') {
+          // Still checking the data it has (after a restart): keep showing what it had.
+          if (!m.progress.size) {
+            this.progress = { ...m.progress, received: this.received }
+            return
+          }
           const grew = m.progress.received - this.received
           if (grew > 0) this.meter.add(grew)
           this.received = m.progress.received

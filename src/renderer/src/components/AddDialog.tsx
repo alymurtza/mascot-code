@@ -63,6 +63,8 @@ function AddSheet({
     initial && parseLinks(initial).length > 1 ? 'many' : 'one'
   )
   const [url, setUrl] = useState(initial ?? '')
+  /** The name typed for the file, for the link it was typed for. */
+  const [typedName, setTypedName] = useState<{ link: string; value: string } | null>(null)
   const [many, setMany] = useState(initial ?? '')
   /** What checking the link found, for the link it was checked for. */
   const [checked, setChecked] = useState<{ link: string; info?: LinkInfo; error?: string } | null>(
@@ -174,6 +176,8 @@ function AddSheet({
       ? matchRule(settings.rules, info.name, link, { page: headers?.referer })
       : undefined
   const folderShown = folder ?? rule?.folder ?? settings.folder
+  const suggestedName = info ? renameWith(rule?.rename, info.name, link) : ''
+  const nameShown = typedName?.link === link ? typedName.value : suggestedName
   const links = useMemo(() => parseLinks(many), [many])
   const torrents = links.filter((l) => l.startsWith('magnet:')).length
   const algorithm = checksum.trim() ? detectAlgorithm(checksum) : undefined
@@ -209,7 +213,8 @@ function AddSheet({
         if (!isWeb && !/^magnet:/i.test(link))
           throw new Error('Paste a web link (http or https) or a magnet link')
         const checked = info ?? (isWeb ? await api.checkLink(link, headers) : undefined)
-        const name = checked ? renameWith(rule?.rename, checked.name, link) : undefined
+        const typed = typedName?.link === link ? typedName.value.trim() : ''
+        const name = typed || (checked ? renameWith(rule?.rename, checked.name, link) : undefined)
         const note = await addOne(
           {
             url: link,
@@ -289,7 +294,7 @@ function AddSheet({
             {checking && <span className="muted">Checking the link…</span>}
             {info && (
               <span className="muted">
-                {info.name} · {size(info.size)}
+                {size(info.size)}
                 {info.ranged ? '' : ' · this server sends the file in one piece'}
               </span>
             )}
@@ -299,6 +304,19 @@ function AddSheet({
             )}
             {torrentNow?.error && <span className="err-txt">{torrentNow.error}</span>}
           </div>
+          {info && (
+            <div className="field">
+              <label htmlFor="save-as">Save as</label>
+              <input
+                className="inp"
+                id="save-as"
+                value={nameShown}
+                spellCheck={false}
+                onChange={(e) => setTypedName({ link, value: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && canAdd && void submit()}
+              />
+            </div>
+          )}
           {torrentNow?.info && (
             <div className="field">
               <span style={{ fontWeight: 500 }}>

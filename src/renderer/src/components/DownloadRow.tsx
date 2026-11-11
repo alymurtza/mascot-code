@@ -99,6 +99,50 @@ function Links({ d }: { d: Download }): JSX.Element {
   )
 }
 
+/** A new name for a download: its name without the extension is selected, ready to type over. */
+function RenameForm({ d, onDone }: { d: Download; onDone: () => void }): JSX.Element {
+  const [value, setValue] = useState(d.name)
+  const [saving, setSaving] = useState(false)
+  const save = async (): Promise<void> => {
+    setSaving(true)
+    try {
+      await api.rename(d.id, value)
+      onDone()
+    } catch (error) {
+      report(error)
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <div className="inline" role="group" aria-label="Rename" style={{ flex: 1 }}>
+      <input
+        className="inp"
+        aria-label="New name"
+        style={{ flex: 1, minWidth: 0 }}
+        value={value}
+        autoFocus
+        spellCheck={false}
+        onFocus={(e) => {
+          const dot = d.name.lastIndexOf('.')
+          e.target.setSelectionRange(0, dot > 0 && d.kind === 'web' ? dot : d.name.length)
+        }}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') void save()
+          if (e.key === 'Escape') onDone()
+        }}
+      />
+      <button className="btn primary" type="button" disabled={saving} onClick={() => void save()}>
+        Save
+      </button>
+      <button className="btn" type="button" onClick={onDone}>
+        Cancel
+      </button>
+    </div>
+  )
+}
+
 function StartAt({ d, onDone }: { d: Download; onDone: () => void }): JSX.Element {
   const [value, setValue] = useState(inAnHour)
   return (
@@ -320,6 +364,7 @@ function TorrentFiles({ d }: { d: Download }): JSX.Element {
 function Detail({ d, group }: { d: Download; group: Group }): JSX.Element {
   const [confirming, setConfirming] = useState(false)
   const [picking, setPicking] = useState(false)
+  const [renaming, setRenaming] = useState(false)
   const queuedOthers = useApp((s) => s.downloads.some((x) => x.status === 'queued'))
   const ranged = d.ranged && d.packets
   const links = d.kind === 'web' && (group !== 'done' || d.sources.length > 1)
@@ -403,8 +448,12 @@ function Detail({ d, group }: { d: Download; group: Group }): JSX.Element {
         () => (group === 'done' ? void act(d, 'remove') : setConfirming(true)),
         group === 'done' ? '' : 'danger'
       )
+  // A torrent's files keep their names until it has finished.
+  const renameBtn =
+    (d.kind === 'web' || group === 'done') && btn('Rename…', () => setRenaming(true))
   let actions: JSX.Element
-  if (picking) actions = <StartAt d={d} onDone={() => setPicking(false)} />
+  if (renaming) actions = <RenameForm d={d} onDone={() => setRenaming(false)} />
+  else if (picking) actions = <StartAt d={d} onDone={() => setPicking(false)} />
   else if (group === 'running')
     actions = (
       <>
@@ -416,6 +465,7 @@ function Detail({ d, group }: { d: Download; group: Group }): JSX.Element {
         {queuedOthers && btn('Move to queue', () => void act(d, 'queue'))}
         {btn('Start at…', () => setPicking(true))}
         {btn('Show in folder', () => void api.showInFolder(d.path))}
+        {renameBtn}
         {btn('Copy link', () => void api.copyText(d.url).then(() => toast('Link copied.')))}
         {cancel}
       </>
@@ -426,6 +476,7 @@ function Detail({ d, group }: { d: Download; group: Group }): JSX.Element {
         {retryNow}
         {/changed on the server/.test(d.message ?? '') &&
           btn('Download again', () => void act(d, 'restart'))}
+        {renameBtn}
         {btn('Copy link', () => void api.copyText(d.url).then(() => toast('Link copied.')))}
         {cancel}
       </>
@@ -435,6 +486,7 @@ function Detail({ d, group }: { d: Download; group: Group }): JSX.Element {
       <>
         {btn('Open', () => void api.openFile(d.path).catch(report), 'primary')}
         {btn('Show in folder', () => void api.showInFolder(d.path))}
+        {renameBtn}
         {d.checksum?.result === 'mismatch' && btn('Download again', () => void act(d, 'restart'))}
         {cancel}
         {btn('Move file to Trash', () => void act(d, 'trash'), 'danger')}
@@ -445,6 +497,7 @@ function Detail({ d, group }: { d: Download; group: Group }): JSX.Element {
       <>
         {btn('Download first', () => void act(d, 'first'), 'primary')}
         {btn(group === 'scheduled' ? 'Change time' : 'Start at…', () => setPicking(true))}
+        {renameBtn}
         {cancel}
       </>
     )

@@ -95,7 +95,7 @@ test('very long links, names, folders and group names: downloads finish and noth
   await page.getByRole('button', { name: 'Add download' }).first().click()
   const dialog = page.getByRole('dialog', { name: 'Add download' })
   await dialog.getByLabel('Link or magnet').fill(server.url(longPath + query) + '&again=1')
-  await expect(dialog.getByText(/file-name-in-the-link/).first()).toBeVisible()
+  await expect(dialog.getByLabel('Save as')).toHaveValue(/file-name-in-the-link/)
   if (SHOTS) await page.screenshot({ path: SHOTS + '/long-add.png' })
   await noSideways(page)
   await dialog.getByRole('button', { name: 'Many links' }).click()

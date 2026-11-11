@@ -12,6 +12,7 @@ import {
 import { chromium, expect, test, type BrowserContext } from '@playwright/test'
 import { randomFile, startServer, type TestServer } from '../support/server'
 import { launch, type Launched } from './app'
+import { bridgePortsFree } from '../support/ports'
 
 // The extension's API, inside its service worker (code run there by sw.evaluate).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,6 +29,8 @@ test.afterAll(async () => {
 })
 
 const bridge = 'http://127.0.0.1:19400'
+
+test.beforeAll(bridgePortsFree)
 
 test('the browser extension hands a download over, with the page’s cookies; web pages are refused', async () => {
   server.files.set('/members/file.zip', { body: randomFile(500_000) })
@@ -66,7 +69,8 @@ test('the browser extension hands a download over, with the page’s cookies; we
   expect(ok.status).toBe(200)
   const dialog = run.page.getByRole('dialog', { name: 'Add download' })
   await expect(dialog.getByLabel('Link or magnet')).toHaveValue(server.url('/members/file.zip'))
-  await expect(dialog.getByText('file.zip · 488 KB')).toBeVisible()
+  await expect(dialog.getByLabel('Save as')).toHaveValue('file.zip')
+  await expect(dialog.getByText('488 KB')).toBeVisible()
   await dialog.getByRole('button', { name: 'Add download' }).click()
   await run.until((l) => l[0]?.status === 'done')
   const hits = server.hits.filter((h) => h.path === '/members/file.zip')

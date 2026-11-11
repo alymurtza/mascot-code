@@ -30,7 +30,8 @@ export async function addOne(
 ): Promise<Outcome> {
   const match = await api.findDuplicate(request.url, info, {
     folder: request.folder,
-    name: request.name
+    name: request.name ?? request.torrent?.info.name,
+    torrent: request.torrent !== undefined
   })
   if (match) {
     if (match.kind === 'same-file') {
@@ -58,6 +59,13 @@ export async function addOne(
       return { kind: 'joined', text: `Added as a backup link to ${match.name}.` }
     }
     if (choice === 'skip') return { kind: 'skipped', text: `Skipped ${match.name}.` }
+    if (choice === 'continue' || choice === 'replace') {
+      const d = await api.add({ ...request, info, existing: choice })
+      return {
+        kind: 'added',
+        text: choice === 'continue' ? `Carrying on with ${d.name}.` : `Added ${d.name}.`
+      }
+    }
     if (choice === 'close') return remembered ? { kind: 'skipped', text: '' } : null
     // 'again' and 'separate': a new download.
   }

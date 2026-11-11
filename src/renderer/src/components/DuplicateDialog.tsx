@@ -1,11 +1,12 @@
 import { useEffect, useState, type JSX, type ReactNode } from 'react'
 import type { Download, DuplicateMatch } from '@shared/download'
 import { api } from '../bridge'
-import { clock, fitPath } from '../format'
+import { clock, fitPath, size } from '../format'
 import { get, set } from '../store'
 import { Sheet } from './ui'
 
-export type DuplicateChoice = 'show' | 'mirror' | 'separate' | 'again' | 'skip' | 'close'
+export type DuplicateChoice =
+  'show' | 'mirror' | 'separate' | 'again' | 'skip' | 'close' | 'continue' | 'replace'
 
 interface Answer {
   choice: DuplicateChoice
@@ -62,6 +63,49 @@ export function questionFor(
     { label: 'Skip', choice: 'skip', primary: true },
     { label: 'Download again', choice: 'again' }
   ]
+  if (match.kind === 'partial' && match.path) {
+    const folder = fitPath(match.path.slice(0, match.path.length - match.name.length - 1))
+    const keepBoth: QuestionChoice = { label: 'Keep both', choice: 'separate' }
+    if (match.resumable && match.received === undefined)
+      return {
+        title: 'Part of this is already here',
+        body: (
+          <>
+            <b>{match.name}</b> is already in {folder}. Continuing checks what’s there and downloads
+            only what’s missing.
+          </>
+        ),
+        choices: [keepBoth, { label: 'Continue', choice: 'continue', primary: true }],
+        rest: many
+      }
+    if (match.resumable)
+      return {
+        title: 'Part of this is already here',
+        body: (
+          <>
+            <b>{match.name}</b> is partly downloaded in {folder}
+            {match.size ? `: ${size(match.received ?? 0)} of ${size(match.size)}` : ''}.
+          </>
+        ),
+        choices: [
+          keepBoth,
+          { label: 'Start over', choice: 'replace' },
+          { label: 'Continue', choice: 'continue', primary: true }
+        ],
+        rest: many
+      }
+    return {
+      title: 'A partly downloaded copy is here',
+      body: (
+        <>
+          Part of <b>{match.name}</b> is in {folder}, but Mascot can’t tell which parts of it are
+          complete.
+        </>
+      ),
+      choices: [keepBoth, { label: 'Start over', choice: 'replace', primary: true }],
+      rest: many
+    }
+  }
   if (match.kind === 'on-disk' && match.path) {
     const path = match.path
     return {

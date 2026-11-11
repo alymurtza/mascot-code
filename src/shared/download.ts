@@ -114,14 +114,19 @@ export interface DuplicateMatch {
   /** same-link: that link is already a download. same-file: the same file from another link
    * (size and ETag agree). maybe: only the name and size agree. finished: already downloaded
    * and still on disk. failed: a download of it failed. on-disk: a file of that name is already
-   * in the folder, though not in the list. */
-  kind: 'same-link' | 'same-file' | 'maybe' | 'finished' | 'failed' | 'on-disk'
+   * in the folder, though not in the list. partial: part of it is in the folder, left from a
+   * download no longer in the list (a torrent's folder, or a web download's part file). */
+  kind: 'same-link' | 'same-file' | 'maybe' | 'finished' | 'failed' | 'on-disk' | 'partial'
   /** The download it matches ('' for on-disk). */
   id: string
   name: string
   status: DownloadStatus
-  /** on-disk: the file that's there. */
+  /** on-disk, partial: the file (or torrent folder) that's there. */
   path?: string
+  /** partial: whether Mascot can carry on from it, and how much of it is there. */
+  resumable?: boolean
+  received?: number
+  size?: number
 }
 
 export interface AddRequest {
@@ -139,6 +144,8 @@ export interface AddRequest {
   torrent?: { source: TorrentSource; info: TorrentInfo; files?: number[] }
   /** Added together with others, as one group. */
   group?: DownloadGroup
+  /** What's left of an earlier download of it in the folder: carry on from it, or replace it. */
+  existing?: 'continue' | 'replace'
 }
 
 export type DownloadAction =

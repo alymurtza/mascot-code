@@ -3,7 +3,10 @@ import { spawn } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { after, test } from 'node:test'
+import { after, before, test } from 'node:test'
+import { bridgePortsFree } from '../support/ports'
+
+before(bridgePortsFree)
 
 const HOST = join(__dirname, '../../native/host.cjs')
 const dir = mkdtempSync(join(tmpdir(), 'mascot-native-'))

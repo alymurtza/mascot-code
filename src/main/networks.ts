@@ -65,6 +65,11 @@ export class Networks {
     this.timer.unref()
   }
 
+  /** Writes the data usage to disk now. */
+  saveNow(): void {
+    this.usageFile.flush()
+  }
+
   stop(): void {
     this.watcher.stop()
     if (this.timer) clearInterval(this.timer)
