@@ -912,6 +912,7 @@ export class Engine {
       this.snapshot(job)
       for (const [id, v] of Object.entries(job.d.networkSpeeds)) totals[id] = (totals[id] ?? 0) + v
     }
+    this.shareNetworkLimits()
     this.networks.speeds = totals
     const busy = [...this.jobs.values()].some(
       (j) => j.running || j.d.status === 'queued' || j.d.status === 'checking'
@@ -924,6 +925,24 @@ export class Engine {
       this.finishedSinceBusy = false
     }
     if (running > 0 || this.signature() !== before) this.changed()
+  }
+
+  /** A limited network's speed limit covers web downloads and torrents together. */
+  shareNetworkLimits(): void {
+    const web: Record<string, number> = {}
+    let webBusy = false
+    let torrentBusy = false
+    for (const job of this.jobs.values()) {
+      if (!job.running) continue
+      if (job.d.kind === 'torrent') torrentBusy = true
+      else {
+        webBusy = true
+        for (const [id, v] of Object.entries(job.d.networkSpeeds)) web[id] = (web[id] ?? 0) + v
+      }
+    }
+    this.torrents.setNetworkLimits(
+      this.networks.shareLimits(web, this.torrents.speeds(), webBusy, torrentBusy)
+    )
   }
 
   /** Each download's state, to tell whether a tick changed anything. */

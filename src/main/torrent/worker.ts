@@ -5,7 +5,7 @@
  */
 import { rm } from 'node:fs/promises'
 import type { FromWorker, ToWorker, TorrentInfo, TorrentSource } from '../../shared/torrent'
-import { installPeerSockets, setNetworks, takeUsage } from './peerSockets'
+import { installPeerSockets, setNetworkLimits, setNetworks, takeUsage } from './peerSockets'
 
 installPeerSockets()
 
@@ -188,6 +188,7 @@ setInterval(flushUsage, 1000)
 port.on('message', (event: { data: ToWorker }) => {
   const m = event.data
   if (m.type === 'networks') setNetworks(m.adapters, m.bindDevices)
+  else if (m.type === 'networkLimits') setNetworkLimits(m.rates)
   else if (m.type === 'limit')
     void getClient().then((c) => c.throttleDownload(m.rate > 0 ? m.rate : -1))
   else if (m.type === 'info')

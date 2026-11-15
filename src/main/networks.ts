@@ -41,6 +41,10 @@ export class Networks {
   private readonly usage: UsageFile
   private readonly failingUntil = new Map<string, number>()
   private readonly limiters = new Map<string, Limiter>()
+  /** A limited network's speed limit is shared by web downloads (here) and torrents (in their
+   * own process): what each gets of it right now, while both are running. */
+  private readonly torrentShare = new Map<string, number>()
+  private readonly webShare = new Map<string, number>()
   readonly total = new Limiter()
   private covering: string | null = null
   private alwaysBackSince = 0
@@ -175,14 +179,75 @@ export class Networks {
     const window = limitWindowActive(s.limitWindow, new Date(now)) ? s.limitWindow.rate : 0
     const rates = [s.speedLimit, s.slowMode ? SLOW_MODE_RATE : 0, window].filter((r) => r > 0)
     this.total.setRate(rates.length ? Math.min(...rates) : 0)
-    for (const [id, limiter] of this.limiters) limiter.setRate(this.prefs(id).speedLimit ?? 0)
+    for (const [id, limiter] of this.limiters) limiter.setRate(this.webRate(id))
+  }
+
+  /** What web downloads may use of a network's speed limit (0: no limit). */
+  private webRate(id: string): number {
+    const limit = this.prefs(id).speedLimit ?? 0
+    return limit > 0 ? (this.webShare.get(id) ?? limit) : 0
+  }
+
+  /**
+   * Splits each limited network's speed limit between web downloads and torrents, so together
+   * they stay within it. When only one kind is running it gets all of it; when both are, each
+   * starts with half, gives what it doesn't use to the other, and drifts back towards half
+   * when both want more. Neither gets less than a tenth.
+   * `web` and `torrent` are what each is using per network now. Returns the torrents' part.
+   */
+  shareLimits(
+    web: Record<string, number>,
+    torrent: Record<string, number>,
+    webBusy: boolean,
+    torrentBusy: boolean
+  ): Record<string, number> {
+    const both = webBusy && torrentBusy
+    const out: Record<string, number> = {}
+    for (const [id, limit] of Object.entries(this.speedLimits())) {
+      let t = limit
+      if (both) {
+        const floor = limit * 0.1
+        const before = this.torrentShare.get(id)
+        if (before === undefined) t = limit / 2
+        else {
+          const tUsed = torrent[id] ?? 0
+          const wUsed = web[id] ?? 0
+          if (tUsed < before * 0.8) t = tUsed * 1.2
+          else if (wUsed < (limit - before) * 0.8) t = limit - wUsed * 1.2
+          // Both want more than they have: back towards half each, a step at a time.
+          else t = before + (limit / 2 - before) * 0.25
+        }
+        t = Math.min(limit - floor, Math.max(floor, t))
+        this.torrentShare.set(id, t)
+        this.webShare.set(id, limit - t)
+      } else {
+        this.torrentShare.delete(id)
+        this.webShare.delete(id)
+      }
+      out[id] = t
+      this.limiters.get(id)?.setRate(this.webRate(id))
+    }
+    for (const id of [...this.webShare.keys()])
+      if (!(id in out)) {
+        this.webShare.delete(id)
+        this.torrentShare.delete(id)
+      }
+    return out
+  }
+
+  /** Each network's own speed limit (bytes/s), for those that have one. */
+  speedLimits(): Record<string, number> {
+    const out: Record<string, number> = {}
+    for (const [id, prefs] of Object.entries(this.settings.get().networks))
+      if (prefs.speedLimit && prefs.speedLimit > 0) out[id] = prefs.speedLimit
+    return out
   }
 
   /** The speed limits for bytes over `id`: its own, then everything's. */
   limitersFor(id: string): Limiter[] {
     let limiter = this.limiters.get(id)
     if (!limiter) {
-      limiter = new Limiter(this.prefs(id).speedLimit ?? 0)
+      limiter = new Limiter(this.webRate(id))
       this.limiters.set(id, limiter)
     }
     return [limiter, this.total]

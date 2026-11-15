@@ -331,6 +331,8 @@ void app.whenReady().then(async () => {
   await networks.ready()
   networks.start()
   engine.start()
+  // A network's speed limit reaches torrents as soon as it's set or changed.
+  settings.onChange(() => engine.shareNetworkLimits())
   applySettings(settings.get())
   updates = new Updates(
     (state) => emit('update', state),

@@ -138,11 +138,11 @@ function Limits({ n }: { n: NetworkView }): JSX.Element {
   const unit = settings.speedUnit
   const [editing, setEditing] = useState(false)
   const [gb, setGb] = useState(
-    prefs.dataLimit ? String(+(prefs.dataLimit.bytes / GB).toFixed(2)) : '5'
+    prefs.dataLimit ? String(+(prefs.dataLimit.bytes / GB).toFixed(2)) : '0'
   )
   const [period, setPeriod] = useState<DataPeriod>(prefs.dataLimit?.period ?? 'day')
   const [rate, setRate] = useState(
-    prefs.speedLimit ? String(+inUnit(prefs.speedLimit, unit).toFixed(1)) : ''
+    prefs.speedLimit ? String(+inUnit(prefs.speedLimit, unit).toFixed(1)) : '0'
   )
   const limit = prefs.dataLimit
   const used = n.limitUsed ?? 0

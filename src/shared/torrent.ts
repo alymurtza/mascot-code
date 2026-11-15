@@ -20,6 +20,8 @@ export interface TorrentInfo {
 export type ToWorker =
   | { type: 'networks'; adapters: Adapter[]; bindDevices: boolean }
   | { type: 'limit'; rate: number }
+  /** Each network's own speed limit (bytes/s; networks without one are left out). */
+  | { type: 'networkLimits'; rates: Record<string, number> }
   | { type: 'info'; req: number; source: TorrentSource; tmp: string }
   | { type: 'start'; id: string; source: TorrentSource; folder: string; files?: number[] }
   | { type: 'stop'; id: string }

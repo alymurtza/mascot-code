@@ -23,6 +23,7 @@ export class TorrentHub {
   private nextReq = 1
   private lastNetworks: ToWorker | null = null
   private lastLimit: ToWorker | null = null
+  private lastNetworkLimits: ToWorker | null = null
   /** Bytes/s per network over torrents, for the speed graph. */
   readonly meters = new Map<string, SpeedMeter>()
 
@@ -54,6 +55,7 @@ export class TorrentHub {
     this.child = child
     if (this.lastNetworks) child.postMessage(this.lastNetworks)
     if (this.lastLimit) child.postMessage(this.lastLimit)
+    if (this.lastNetworkLimits) child.postMessage(this.lastNetworkLimits)
     return child
   }
 
@@ -82,6 +84,14 @@ export class TorrentHub {
   setLimit(rate: number): void {
     this.lastLimit = { type: 'limit', rate }
     this.child?.postMessage(this.lastLimit)
+  }
+
+  /** Each network's own speed limit, for the connections torrents make on it. */
+  setNetworkLimits(rates: Record<string, number>): void {
+    const message: ToWorker = { type: 'networkLimits', rates }
+    if (JSON.stringify(message) === JSON.stringify(this.lastNetworkLimits)) return
+    this.lastNetworkLimits = message
+    this.child?.postMessage(message)
   }
 
   speeds(): Record<string, number> {
