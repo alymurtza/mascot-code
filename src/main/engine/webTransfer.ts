@@ -283,7 +283,12 @@ export class WebTransfer {
       .limiters(adapterId)
       .some((l) => l && l.rate > 0 && speed > l.rate * 0.85)
     lane.stepAt = now
-    if (limited || speed === 0) return
+    // At the network's speed limit more connections can't help; fewer keep it steady.
+    if (limited) {
+      if (lane.target > AUTO_START) lane.target -= 2
+      return
+    }
+    if (speed === 0) return
     if (!lane.grew || speed > lane.speedAtStep * 1.1) {
       if (lane.target < AUTO_MAX) {
         lane.target = Math.min(AUTO_MAX, lane.target + 2)
@@ -431,10 +436,12 @@ export class WebTransfer {
       for await (const chunk of res as AsyncIterable<Buffer>) {
         arm()
         this.lastBytesAt = Date.now()
-        this.meter.add(chunk.length)
-        this.lane(slot.adapterId).meter.add(chunk.length)
+        // Data used counts it as it arrives; the speed counts it once the speed limit lets it
+        // through, so a burst waiting in the connection doesn't show as going over the limit.
         this.host.received(slot.adapterId, chunk.length)
         await takeAll(this.host.limiters(slot.adapterId), chunk.length)
+        this.meter.add(chunk.length)
+        this.lane(slot.adapterId).meter.add(chunk.length)
         if (!this.file) throw new Error('Stopped')
         await this.file.write(chunk, 0, chunk.length, position)
         position += chunk.length

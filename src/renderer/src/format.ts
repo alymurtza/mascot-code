@@ -46,7 +46,8 @@ export function duration(seconds: number | undefined): string {
 export const count = (n: number): string => n.toLocaleString('en-US')
 
 /** "ISO", "ZIP": the file's extension for its tile. */
-export function fileTag(name: string): string {
+export function fileTag(name: string, kind?: string): string {
+  if (kind === 'torrent') return 'TOR'
   const dot = name.lastIndexOf('.')
   return dot > 0 && name.length - dot <= 5 ? name.slice(dot + 1).toUpperCase() : 'FILE'
 }

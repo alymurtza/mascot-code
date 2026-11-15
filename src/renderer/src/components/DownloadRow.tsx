@@ -55,7 +55,7 @@ function Links({ d }: { d: Download }): JSX.Element {
             <li className="mrow" key={s.url}>
               <span className="dot" style={{ background: color, color }} />
               <span className="mu" title={s.url}>
-                {s.url}
+                {readableLink(s.url)}
               </span>
               <span className="muted mst">
                 {s.dropped ? `Not used: ${s.dropped}` : main ? 'Main link' : 'In use'}
@@ -124,8 +124,12 @@ function RenameForm({ d, onDone }: { d: Download; onDone: () => void }): JSX.Ele
         autoFocus
         spellCheck={false}
         onFocus={(e) => {
-          const dot = d.name.lastIndexOf('.')
-          e.target.setSelectionRange(0, dot > 0 && d.kind === 'web' ? dot : d.name.length)
+          const ext = /\.tar\.\w+$/i.exec(d.name)?.[0] ?? /\.[^.]+$/.exec(d.name)?.[0] ?? ''
+          const end =
+            d.kind === 'web' && ext.length < d.name.length
+              ? d.name.length - ext.length
+              : d.name.length
+          e.target.setSelectionRange(0, end)
         }}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
@@ -293,6 +297,15 @@ const FOLDER = (
   </svg>
 )
 
+/** A link with %20 and the like shown as the characters they stand for. */
+function readableLink(url: string): string {
+  try {
+    return decodeURI(url)
+  } catch {
+    return url
+  }
+}
+
 /** A torrent's files: each one's size and how far along it is, with a box to fetch it or not
  * (changeable while it downloads; at least one stays chosen). */
 function TorrentFiles({ d }: { d: Download }): JSX.Element {
@@ -313,8 +326,10 @@ function TorrentFiles({ d }: { d: Download }): JSX.Element {
   }
   const pct = (f: { length: number; received: number }): string =>
     f.length ? `${Math.floor((Math.min(f.received, f.length) / f.length) * 100)}%` : '100%'
-  const total = files.reduce((n, f) => n + f.length, 0)
-  const got = files.reduce((n, f) => n + Math.min(f.received, f.length), 0)
+  // The folder's line counts the chosen files, like the download's own size and progress.
+  const picked = files.filter((_, i) => chosen.includes(i))
+  const total = picked.reduce((n, f) => n + f.length, 0)
+  const got = picked.reduce((n, f) => n + Math.min(f.received, f.length), 0)
   const allBox = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (allBox.current) allBox.current.indeterminate = !all && chosen.length > 0
@@ -404,7 +419,7 @@ function Detail({ d, group }: { d: Download; group: Group }): JSX.Element {
                 ['Checksum', <ChecksumFact key="checksum" d={d} />],
                 [
                   'Packets',
-                  d.packets ? `${count(d.packets.total)} of ${size(d.packetSize)}` : 'One piece'
+                  d.packets ? `${count(d.packets.total)} × ${size(d.packetSize)}` : 'One piece'
                 ]
               ]
             : [
@@ -553,7 +568,7 @@ export function DownloadRow({ d, first }: { d: Download; first?: boolean }): JSX
       {paused ? <Icon.play /> : <Icon.pause />}
     </button>
   )
-  let tile: JSX.Element = <div className="ftype">{fileTag(d.name)}</div>
+  let tile: JSX.Element = <div className="ftype">{fileTag(d.name, d.kind)}</div>
   let sub: ReactNode = null
   let right: ReactNode = null
   if (group === 'running') {

@@ -50,12 +50,19 @@ export function nameFromUrl(url: string): string | undefined {
 }
 
 /** `name` in `folder`, or "name (2).ext" and so on if that is taken (or reserved). */
+/** A name's extension, keeping the ones that come in two parts together (archive.tar.gz). */
+export function extensionOf(name: string): string {
+  const two = /\.(tar\.(gz|bz2|xz|zst|lz|lzma|z)|user\.js)$/i.exec(name)
+  if (two && two.index > 0) return two[0]
+  return extname(name)
+}
+
 export function uniquePath(
   folder: string,
   name: string,
   taken: (path: string) => boolean = () => false
 ): string {
-  const ext = extname(name)
+  const ext = extensionOf(name)
   const stem = name.slice(0, name.length - ext.length)
   for (let n = 1; ; n++) {
     const candidate = join(folder, n === 1 ? name : `${stem} (${n})${ext}`)

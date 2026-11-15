@@ -111,7 +111,7 @@ function ActiveRow({
   return (
     <article className="dl" aria-label={d.name}>
       <div className="row qr">
-        <div className="ftype">{fileTag(d.name)}</div>
+        <div className="ftype">{fileTag(d.name, d.kind)}</div>
         <div className="main">
           <div className="name">
             {d.priority && (
@@ -321,7 +321,7 @@ export function QueueScreen(): JSX.Element {
         {queued.map((d, i) => (
           <article className="dl" key={d.id} aria-label={d.name}>
             <div className="row qr">
-              <div className="ftype">{fileTag(d.name)}</div>
+              <div className="ftype">{fileTag(d.name, d.kind)}</div>
               <div className="main">
                 <div className="name">{d.name}</div>
                 <div className="meta">

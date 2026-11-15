@@ -1,4 +1,4 @@
-import { useEffect, useState, type JSX } from 'react'
+import { Fragment, useEffect, useState, type JSX } from 'react'
 import type { DeviceView, SpeedTestResult } from '@shared/api'
 import type { NetworkView, UsageDays } from '@shared/network'
 import type { DataPeriod, NetworkPrefs } from '@shared/settings'
@@ -775,13 +775,14 @@ function Usage({ usage, devices }: { usage: UsageDays; devices: DeviceView[] }):
         aria-label={`Data used by network over the ${title}`}
         style={{ gridTemplateColumns: `repeat(${buckets.length}, minmax(0, 1fr))` }}
       >
+        {/* Lines and labels sit over the grid, not in it: only the bars take columns. */}
         {[0, 50, 100].map((y) => (
-          <div key={y}>
+          <Fragment key={y}>
             <div className="gl" style={{ top: `${y}%` }} />
             <div className="ylab" style={{ top: `${y}%` }}>
               {y === 0 ? `${max} ${unitName}` : y === 50 ? max / 2 : 0}
             </div>
-          </div>
+          </Fragment>
         ))}
         {rows.map((r, i) => (
           <div
@@ -811,7 +812,8 @@ function Usage({ usage, devices }: { usage: UsageDays; devices: DeviceView[] }):
         style={{ gridTemplateColumns: `repeat(${buckets.length}, minmax(0, 1fr))` }}
       >
         {buckets.map((b, i) => (
-          <span key={i}>{span === 'days' && i % 2 ? '' : b.label}</span>
+          // Every other day, counted back from today so today always has its date.
+          <span key={i}>{span === 'days' && (buckets.length - 1 - i) % 2 ? '' : b.label}</span>
         ))}
       </div>
     </section>
